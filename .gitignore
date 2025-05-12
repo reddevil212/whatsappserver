@@ -17,6 +17,7 @@ tokens/
 sessions/
 whatsapp-auth-data
 whatsapp-data
+.gitignore
 
 # Vercel
 .vercel
