@@ -4,7 +4,7 @@ const fetch = require('node-fetch'); // If using Node.js <18, install this via `
 const sendOtp = async () => {
     const phoneNumber = '919339399097';
     const API_KEY = 'hellowhoisthis007'; // Replace with your actual API key
-    const SERVER_URL = 'https://whatsappserver-iota.vercel.app'; // Replace with your server's URL if hosted elsewhere
+    const SERVER_URL = 'https://whatsapp-server-bqvf.onrender.com'; // Replace with your server's URL if hosted elsewhere
 
     try {
         const response = await fetch(`${SERVER_URL}/otp/generate?key=${API_KEY}`, {

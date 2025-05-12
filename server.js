@@ -275,28 +275,77 @@ const initializeWhatsApp = async () => {
     try {
         console.log(`[${moment().utc().format('YYYY-MM-DD HH:mm:ss')}] Initializing WhatsApp client...`);
         
-        // Add retry logic
+        // Add retry logic with exponential backoff
         let retries = 0;
-        const maxRetries = 3;
+        const maxRetries = 10; // Increased max retries
         
         while (retries < maxRetries) {
             try {
                 await whatsappService.initializeClient();
+                console.log(`[${moment().utc().format()}] WhatsApp client initialized successfully`);
                 break;
             } catch (error) {
                 retries++;
                 console.error(`[${moment().utc().format()}] WhatsApp initialization attempt ${retries} failed:`, error);
                 if (retries === maxRetries) throw error;
-                // Wait before retrying
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                // Exponential backoff with max delay of 30 seconds
+                const delay = Math.min(1000 * Math.pow(2, retries), 30000);
+                console.log(`[${moment().utc().format()}] Waiting ${delay/1000} seconds before retry...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
     } catch (error) {
         console.error(`[${moment().utc().format()}] WhatsApp initialization error:`, error);
-        // Don't exit the process, let it recover
         whatsappService.isAuthenticated = false;
+        // Schedule a retry after 1 minute
+        setTimeout(initializeWhatsApp, 60000);
     }
 };
+
+// Add a health check endpoint
+app.get('/health', checkApiKey, (req, res) => {
+    const status = whatsappService.getServiceStatus();
+    if (!status.authenticated) {
+        // Trigger reconnection if not authenticated
+        initializeWhatsApp().catch(console.error);
+    }
+    res.json({
+        success: true,
+        ...status
+    });
+});
+
+// Add a manual logout endpoint
+app.post('/logout', checkApiKey, async (req, res) => {
+    try {
+        if (whatsappService.client) {
+            await whatsappService.client.destroy();
+            whatsappService.isAuthenticated = false;
+            whatsappService.initialized = false;
+            whatsappService._saveAuthStatus();
+        }
+        res.json({
+            success: true,
+            message: 'Logged out successfully',
+            timestamp: moment().utc().format('YYYY-MM-DD HH:mm:ss')
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            timestamp: moment().utc().format('YYYY-MM-DD HH:mm:ss')
+        });
+    }
+});
+
+// Add periodic health check
+setInterval(() => {
+    const status = whatsappService.getServiceStatus();
+    if (!status.authenticated) {
+        console.log(`[${moment().utc().format()}] Service not authenticated, attempting reconnection...`);
+        initializeWhatsApp().catch(console.error);
+    }
+}, 5 * 60 * 1000); // Check every 5 minutes
 
 // Start the server
 const PORT = process.env.PORT || 3000;
@@ -309,6 +358,13 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log(`[${moment().utc().format('YYYY-MM-DD HH:mm:ss')}] Received SIGTERM signal. Shutting down gracefully...`);
+    try {
+        if (whatsappService.client) {
+            await whatsappService.client.destroy();
+        }
+    } catch (error) {
+        console.error(`[${moment().utc().format()}] Error during shutdown:`, error);
+    }
     process.exit(0);
 });
 

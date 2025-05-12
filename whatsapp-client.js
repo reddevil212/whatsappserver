@@ -101,10 +101,14 @@ class WhatsAppService {
                     this._saveAuthStatus();
                 });
 
-                this.client.on('disconnected', (reason) => {
+                this.client.on('disconnected', async (reason) => {
                     console.warn(`[${moment().utc().format()}] Disconnected: ${reason}`);
                     this.isAuthenticated = false;
                     this._saveAuthStatus();
+                    
+                    // Attempt to reconnect
+                    console.log(`[${moment().utc().format()}] Attempting to reconnect...`);
+                    await this.reconnect();
                 });
 
                 await this.client.initialize();
@@ -119,6 +123,26 @@ class WhatsAppService {
         });
 
         return this.initializePromise;
+    }
+
+    async reconnect(maxAttempts = 5) {
+        let attempts = 0;
+        while (attempts < maxAttempts && !this.isAuthenticated) {
+            try {
+                console.log(`[${moment().utc().format()}] Reconnection attempt ${attempts + 1}/${maxAttempts}`);
+                await this.initializeClient();
+                if (this.isAuthenticated) {
+                    console.log(`[${moment().utc().format()}] Successfully reconnected`);
+                    return true;
+                }
+            } catch (error) {
+                console.error(`[${moment().utc().format()}] Reconnection attempt failed:`, error);
+            }
+            attempts++;
+            // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, attempts), 30000)));
+        }
+        return false;
     }
 
     isValidPhoneNumber(number) {
