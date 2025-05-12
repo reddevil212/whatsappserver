@@ -1,0 +1,183 @@
+.html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp OTP Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #128C7E;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        #verificationSection {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>WhatsApp OTP Test</h1>
+
+        <div id="phoneSection">
+            <div class="form-group">
+                <label for="phone">Phone Number:</label>
+                <input type="tel" id="phone" placeholder="e.g., 919876543210" required>
+            </div>
+            <div class="form-group">
+                <label for="apiKey">API Key:</label>
+                <input type="password" id="apiKey" placeholder="Enter API key" required>
+            </div>
+            <button type="button" id="requestBtn">Request OTP</button>
+        </div>
+
+        <div id="verificationSection">
+            <div class="form-group">
+                <label for="otp">Enter OTP:</label>
+                <input type="text" id="otp" placeholder="6-digit OTP" maxlength="6" required>
+            </div>
+            <button type="button" id="verifyBtn">Verify OTP</button>
+            <button type="button" id="resetBtn">Reset</button>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        let referenceId = '';
+        const baseUrl = 'http://localhost:3000';
+
+        document.getElementById('requestBtn').addEventListener('click', async () => {
+            const phone = document.getElementById('phone').value;
+            const apiKey = document.getElementById('apiKey').value;
+
+            if (!phone || !apiKey) {
+                showStatus('Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${baseUrl}/otp-verification?phone=${phone}&key=${apiKey}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    referenceId = data.referenceId;
+                    document.getElementById('phoneSection').style.display = 'none';
+                    document.getElementById('verificationSection').style.display = 'block';
+                    showStatus('OTP sent successfully! Check WhatsApp.', 'success');
+                } else {
+                    showStatus(data.error || 'Failed to send OTP', 'error');
+                }
+            } catch (error) {
+                showStatus('Server connection error', 'error');
+                console.error('Error:', error);
+            }
+        });
+
+        document.getElementById('verifyBtn').addEventListener('click', async () => {
+            const otp = document.getElementById('otp').value;
+            const apiKey = document.getElementById('apiKey').value;
+
+            if (!otp || !referenceId) {
+                showStatus('Invalid OTP or session', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${baseUrl}/verify-otp?referenceId=${referenceId}&otp=${otp}&key=${apiKey}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('OTP verified successfully!', 'success');
+                } else {
+                    showStatus(data.error || 'Verification failed', 'error');
+                }
+            } catch (error) {
+                showStatus('Server connection error', 'error');
+                console.error('Error:', error);
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            document.getElementById('phone').value = '';
+            document.getElementById('otp').value = '';
+            document.getElementById('phoneSection').style.display = 'block';
+            document.getElementById('verificationSection').style.display = 'none';
+            document.getElementById('status').style.display = 'none';
+            referenceId = '';
+        });
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+    </script>
+</body>
+
+</html>

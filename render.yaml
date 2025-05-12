@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: whatsapp-server
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js 
+    envVars:
+      - key: API_KEY
+        sync: false
+    plan: free
